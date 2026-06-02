@@ -250,7 +250,7 @@ export default function CustomerTrackingPage({ params }: PageProps) {
 
           {/* FOOTER INFORMASI */}
           <footer className="text-center text-[10px] text-slate-400 font-semibold tracking-wide pb-1">
-            &copy; {new Date().getFullYear()} EatLeafy Corporate. All Rights Reserved.
+            &copy; {new Date().getFullYear()} EatLeafy. All Rights Reserved.
           </footer>
         </div>
 
