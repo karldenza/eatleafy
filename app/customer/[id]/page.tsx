@@ -11,10 +11,11 @@ interface CustomerData {
   whatsapp: string;
   address: string;
   address_backup: string;
-  instagram?: string; // ✅ Ditambahkan ke interface agar aman dari error TS
+  instagram?: string; 
   is_paused: boolean;
   start_date: string;
   duration_days: number;
+  pause_duration_days: number; // ✅ Tambahkan properti kolom baru dari database
   menu_plan: string[];
 }
 
@@ -61,9 +62,11 @@ export default function CustomerTrackingPage({ params }: PageProps) {
 
   if (!customer) notFound();
 
+  // ✅ Berikan parameter ketiga agar perhitungan hari berjalan akurat dikurangi masa jeda
   const status = calculateProgramStatus(
     customer.start_date,
-    customer.duration_days
+    customer.duration_days,
+    customer.pause_duration_days
   );
 
   const todayMenuIndex = status.currentDay - 1;
@@ -95,7 +98,7 @@ export default function CustomerTrackingPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-[#F4F7F6] flex flex-col items-center justify-between p-4 antialiased selection:bg-emerald-100">
       
-      {/* CONTAINER UTAMA (Mobile First Max Width) */}
+      {/* CONTAINER UTAMA */}
       <div className="w-full max-w-md bg-white rounded-[32px] shadow-[0_12px_40px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden flex flex-col font-sans my-auto">
 
         {/* HEADER BRANDING */}
@@ -120,9 +123,8 @@ export default function CustomerTrackingPage({ params }: PageProps) {
         {/* CONTENT LAYOUT */}
         <div className="p-5 space-y-6">
 
-          {/* CUSTOMER CARD (Premium Subscription Style) */}
+          {/* CUSTOMER CARD */}
           <div className="rounded-3xl p-5 text-white bg-slate-950 shadow-md relative overflow-hidden">
-            {/* Background Accent Mesh */}
             <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-emerald-600/20 rounded-full blur-2xl pointer-events-none" />
             
             <div className="flex justify-between items-start z-10 relative">
@@ -134,7 +136,6 @@ export default function CustomerTrackingPage({ params }: PageProps) {
                   {customer.name}
                 </h2>
                 
-                {/* TAMPILAN INSTAGRAM CUSTOMER */}
                 {customer.instagram && (
                   <div className="flex items-center gap-1 text-xs text-slate-400 font-medium mt-1">
                     <span className="text-[10px]">📸</span>
@@ -160,7 +161,24 @@ export default function CustomerTrackingPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* PROGRESS CHALLENGE (Fitness Style) */}
+          {/* ✅ BOX INFORMASI JEDA OTOMATIS (Akan muncul jika ada total jeda > 0 hari) */}
+          {customer.pause_duration_days > 0 && (
+            <div className="bg-blue-50 border border-blue-200/60 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+              <div className="text-lg bg-blue-500 text-white rounded-xl w-8 h-8 flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20">
+                ⏸️
+              </div>
+              <div className="space-y-0.5">
+                <h4 className="text-xs font-black text-blue-900 uppercase tracking-wide">
+                  Siklus Diperpanjang (Auto-Pause)
+                </h4>
+                <p className="text-xs text-blue-700 font-medium leading-relaxed">
+                  Paket Anda dijeda oleh admin selama <span className="font-extrabold text-blue-900 font-mono text-sm bg-blue-100/80 px-1.5 py-0.5 rounded">{customer.pause_duration_days} Hari</span>. Durasi berlangganan Anda akan mundur otomatis dan lanjut normal tanpa hangus.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* PROGRESS CHALLENGE */}
           {!customer.is_paused && !status.isCompleted && (
             <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl space-y-2">
               <div className="flex justify-between items-end text-xs">
@@ -203,7 +221,7 @@ export default function CustomerTrackingPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* FITNESS CHALLENGE HISTORY (DAY CARDS) */}
+          {/* FITNESS CHALLENGE HISTORY */}
           <div className="space-y-3">
             <h3 className="text-xs font-black text-slate-400 tracking-widest uppercase px-0.5">
               Program History Timeline
@@ -248,7 +266,6 @@ export default function CustomerTrackingPage({ params }: PageProps) {
             💬 Contact WhatsApp Support
           </a>
 
-          {/* FOOTER INFORMASI */}
           <footer className="text-center text-[10px] text-slate-400 font-semibold tracking-wide pb-1">
             &copy; {new Date().getFullYear()} EatLeafy. All Rights Reserved.
           </footer>
