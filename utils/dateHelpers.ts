@@ -1,57 +1,59 @@
-// utils/dateHelpers.ts
-
-export interface ProgramStatus {
-  currentDay: number;
-  isCompleted: boolean;
-  daysRemaining: number;
-  progressPercentage: number;
-}
-
-export function calculateProgramStatus(
-  startDateStr: string, 
-  durationDays: number = 30,
-  pauseDurationDays: number = 0 // ✅ Menampung jeda hari dari database (default 0)
-): ProgramStatus {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Reset waktu ke jam 12 malam untuk akurasi tanggal murni
-
+export function calculateProgramStatus(startDateStr: string, durationDays: number, pausedDates: string[]) {
   const start = new Date(startDateStr);
   start.setHours(0, 0, 0, 0);
 
-  // Hitung selisih hari ril antara hari ini dan tanggal mulai
-  const diffTime = today.getTime() - start.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  // ✅ Program Day dikurangi jeda hari. Jika jeda 5 hari, maka hari berjalan otomatis mundur 5 hari.
-  const currentDay = diffDays + 1 - pauseDurationDays;
-
-  // Jika hari berjalan melewati durasi program (Misal: sudah melewati batas durasi)
-  if (currentDay > durationDays) {
+  // Jika belum mulai
+  if (today < start) {
     return {
-      currentDay: durationDays,
-      isCompleted: true,
-      daysRemaining: 0,
-      progressPercentage: 100
-    };
-  }
-
-  // Jika tanggal pendaftaran diset untuk masa depan ATAU akibat tergeser jeda hari (belum mulai kembali)
-  if (currentDay < 1) {
-    return {
-      currentDay: 0,
+      currentDay: 1,
+      progressPercentage: 0,
       isCompleted: false,
       daysRemaining: durationDays,
-      progressPercentage: 0
+      activeDaysPassed: 0
     };
   }
 
-  const daysRemaining = durationDays - currentDay;
-  const progressPercentage = Math.round((currentDay / durationDays) * 100);
+  let activeDaysPassed = 0;
+  let currentDay = 1;
+  let checkDate = new Date(start);
+  
+  // Set aman batas perulangan agar tidak infinite loop
+  const maxIterations = durationDays + pausedDates.length + 100; 
+  let iterations = 0;
+
+  // Lakukan iterasi hari demi hari dari start_date sampai HARI INI
+  while (checkDate <= today && iterations < maxIterations) {
+    const yyyy = checkDate.getFullYear();
+    const mm = String(checkDate.getMonth() + 1).padStart(2, "0");
+    const dd = String(checkDate.getDate()).padStart(2, "0");
+    const checkDateStr = `${yyyy}-${mm}-${dd}`;
+
+    // Jika hari ini TIDAK di-pause oleh admin, berarti catering dikirim (hitung sebagai hari aktif)
+    if (!pausedDates.includes(checkDateStr)) {
+      activeDaysPassed++;
+    }
+    
+    checkDate.setDate(checkDate.getDate() + 1);
+    iterations++;
+  }
+
+  // Jika hari ini pas tanggal pause, status currentDay adalah hari aktif terakhir yang terpenuhi + 1
+  // Tapi tidak boleh melebihi total durasi paket paket
+  currentDay = activeDaysPassed === 0 ? 1 : activeDaysPassed;
+  if (currentDay > durationDays) currentDay = durationDays;
+
+  const isCompleted = activeDaysPassed >= durationDays;
+  const daysRemaining = Math.max(0, durationDays - activeDaysPassed);
+  const progressPercentage = Math.min(100, Math.round((currentDay / durationDays) * 100));
 
   return {
     currentDay,
-    isCompleted: false,
+    progressPercentage,
+    isCompleted,
     daysRemaining,
-    progressPercentage
+    activeDaysPassed
   };
 }
