@@ -40,11 +40,50 @@ export default function AdminDashboard() {
 
   const generateMenuTemplate = (days: number) => {
     const finalDays = orderType === "OFFLINE" ? 1 : days;
-    return Array.from({ length: finalDays }, (_, i) =>
-      orderType === "OFFLINE" 
-        ? `Menu: Custom Offline Healthy Pack`
-        : `Day ${i + 1}: Lemon Herb Salmon | Avocado Smoothie | Grilled Chicken Breast`
-    ).join("\n");
+  
+    // Daftar variasi menu sehat EatLeafy (Maksimal 30 Hari)
+    const menuList = [
+      "Nasi Merah dengan Dada Ayam Panggang dan Brokoli Kukus + Buah",
+      "Chicken Steak with Lemonilo Noodles + Buah",
+      "Chicken Steak with Potato Wedges + Buah",
+      "Nasi Merah dengan Ikan Nila Bakar dan Sayur Bening + Buah",
+      "Nasi Putih dengan Ikan Tongkol Bakar dan Lalapan + Buah",
+      "Baso Louha + Buah",
+      "Nasi Merah dengan Tumis Udang, Buncis, dan Wortel + Buah",
+      "Nasi Putih dengan Dada Ayam Rebus dan Sayur Bayam + Buah",
+      "Carbonara Chicken Steak with Potato Wedges + Buah",
+      "Nasi Merah dengan 2 Telur Rebus dan Capcay + Buah",
+      "Nasi Putih dengan Pepes Tahu dan Sayur Asem + Buah",
+      "Nasi Goreng Merah + Buah",
+      "Nasi Putih dengan Udang Saus Bawang Putih dan Brokoli + Buah",
+      "Salad Wrap + Buah",
+      "Nasi Putih dengan Ayam Suwir dan Tumis Sawi + Buah",
+      "Sweet & Spicy Shrimp with Potato Wedges + Buah",
+      "Grilled Chicken Salad with Spring Roll + Buah",
+      "Kimbap Nasi Merah + Buah",
+      "Chicken Roulade with Rice + Buah",
+      "Nasi Merah dengan Dada Ayam Panggang dan Brokoli Kukus + Buah",
+      "Chicken Steak with Lemonilo Noodles + Buah",
+      "Chicken Steak with Potato Wedges + Buah",
+      "Nasi Merah dengan Ikan Nila Bakar dan Sayur Bening + Buah",
+      "Nasi Putih dengan Ikan Tongkol Bakar dan Lalapan + Buah",
+      "Baso Louha + Buah",
+      "Nasi Merah dengan Tumis Udang, Buncis, dan Wortel + Buah",
+      "Nasi Putih dengan Dada Ayam Rebus dan Sayur Bayam + Buah",
+      "Carbonara Chicken Steak with Potato Wedges + Buah",
+      "Nasi Goreng Merah + Buah",
+      "Sweet & Spicy Shrimp with Potato Wedges + Buah"
+    ];
+  
+    return Array.from({ length: finalDays }, (_, i) => {
+      if (orderType === "OFFLINE") {
+        return `Menu: Custom Offline Healthy Pack`;
+      }
+      
+      // Menggunakan modulo (%) agar jika durasi hari di atas 30 hari, menu akan kembali mengulang ke index awal
+      const currentMenu = menuList[i % menuList.length];
+      return `Day ${i + 1}: ${currentMenu}`;
+    }).join("\n");
   };
 
   const [menuPlanText, setMenuPlanText] = useState(generateMenuTemplate(30));
