@@ -17,6 +17,7 @@ interface Customer {
   menu_plan: string[];
   order_type?: "ONLINE" | "OFFLINE";
   note?: string;
+  payment_proof_url?: string; // Menambahkan field untuk link bukti transfer
 }
 
 export default function AdminDashboard() {
@@ -80,7 +81,6 @@ export default function AdminDashboard() {
         return `Menu: Custom Offline Healthy Pack`;
       }
       
-      // Menggunakan modulo (%) agar jika durasi hari di atas 30 hari, menu akan kembali mengulang ke index awal
       const currentMenu = menuList[i % menuList.length];
       return `Day ${i + 1}: ${currentMenu}`;
     }).join("\n");
@@ -129,7 +129,6 @@ export default function AdminDashboard() {
     setFilteredCustomers(result);
   }, [packageFilter, customers]);
 
-  // Statistik Ringkasan / Home Feature Logic
   const stats = {
     total: customers.length,
     running: customers.filter(c => !c.is_paused && c.order_type !== "OFFLINE").length,
@@ -251,12 +250,11 @@ export default function AdminDashboard() {
         {/* Top Header Branding Banner */}
         <div className="flex items-center justify-between bg-white rounded-3xl p-4 shadow-sm border border-white">
           <div className="flex items-center gap-3">
-            {/* LOGO BARU ANDA DISINI */}
-          <img 
-            src="/logo.jpeg" 
-            alt="Leafy Group Logo" 
-            className="w-12 h-12 rounded-2xl object-cover"
-          />
+            <img 
+              src="/logo.jpeg" 
+              alt="Leafy Group Logo" 
+              className="w-12 h-12 rounded-2xl object-cover"
+            />
             <div>
               <h1 className="text-lg font-black tracking-tight text-slate-900">Leafy Group</h1>
               <p className="text-xs font-semibold text-slate-400">Track & Live Management</p>
@@ -264,7 +262,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* FEATURE: Home / Overall Customer Detail Card Dashboard Summary */}
+        {/* Dashboard Summary Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           <div className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-between">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Users</span>
@@ -359,7 +357,6 @@ export default function AdminDashboard() {
                     {/* Lower Operational Action Control Row Area */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2 relative">
                       
-                      {/* FEATURE: CP Redirect to WhatsApp */}
                       {cust.whatsapp ? (
                         <a 
                           href={`https://wa.me/${cust.whatsapp}`} 
@@ -383,7 +380,7 @@ export default function AdminDashboard() {
                           {cust.is_paused ? "Resume" : "Manual Hold"}
                         </button>
 
-                        {/* Action 2: Calendar Pause Dropdown Panel Placement */}
+                        {/* Action 2: Calendar Pause Dropdown Panel */}
                         {!isOffline && (
                           <div className="relative">
                             <button
@@ -433,6 +430,26 @@ export default function AdminDashboard() {
                           </div>
                         )}
 
+                        {/* FITUR BARU: Tombol Cek Bukti Transfer */}
+                        {cust.payment_proof_url ? (
+                          <a 
+                            href={cust.payment_proof_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-xs font-bold px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-all text-center shadow-sm"
+                          >
+                            Bukti Pay
+                          </a>
+                        ) : (
+                          <button 
+                            disabled 
+                            className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-200 text-slate-400 cursor-not-allowed"
+                            title="Belum mengunggah bukti"
+                          >
+                            No Pay
+                          </button>
+                        )}
+
                         <a href={`/customer/${cust.id}`} target="_blank" className="text-xs font-bold px-3 py-2 rounded-xl bg-emerald-500 text-white">Portal</a>
                         <button type="button" onClick={() => handleDelete(cust.id)} className="text-xs font-bold px-2.5 py-2 rounded-xl bg-red-50 text-red-600">Delete</button>
                       </div>
@@ -469,7 +486,6 @@ export default function AdminDashboard() {
                     <input placeholder="628xxxxxx atau 08xxxxxx" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="w-full p-2.5 text-sm bg-slate-50 border rounded-xl" required />
                   </div>
                   
-                  {/* FEATURE: Quick select durations incl. 24days & weekly */}
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-slate-400 tracking-wider uppercase">Duration (Days)</label>
                     <div className="grid grid-cols-3 gap-1 mb-1.5">
