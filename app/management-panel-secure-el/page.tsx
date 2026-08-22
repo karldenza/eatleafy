@@ -17,7 +17,7 @@ interface Customer {
   menu_plan: string[];
   order_type?: "ONLINE" | "OFFLINE";
   note?: string;
-  payment_proof_url?: string; // Menambahkan field untuk link bukti transfer
+  payment_proof_url?: string;
 }
 
 export default function AdminDashboard() {
@@ -26,6 +26,10 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [packageFilter, setPackageFilter] = useState<"ALL" | "MONTHLY" | "24DAYS" | "WEEKLY" | "OFFLINE">("ALL");
   const [activeCalendarCustomerId, setActiveCalendarCustomerId] = useState<string | null>(null);
+
+  // State untuk Fitur Edit Menu
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editMenuText, setEditMenuText] = useState("");
 
   // Form State
   const [orderType, setOrderType] = useState<"ONLINE" | "OFFLINE">("ONLINE");
@@ -42,7 +46,6 @@ export default function AdminDashboard() {
   const generateMenuTemplate = (days: number) => {
     const finalDays = orderType === "OFFLINE" ? 1 : days;
   
-    // Daftar variasi menu sehat EatLeafy (Maksimal 30 Hari)
     const menuList = [
       "Nasi Merah dengan Dada Ayam Panggang dan Brokoli Kukus + Buah",
       "Chicken Steak with Lemonilo Noodles + Buah",
@@ -80,7 +83,6 @@ export default function AdminDashboard() {
       if (orderType === "OFFLINE") {
         return `Menu: Custom Offline Healthy Pack`;
       }
-      
       const currentMenu = menuList[i % menuList.length];
       return `Day ${i + 1}: ${currentMenu}`;
     }).join("\n");
@@ -160,6 +162,42 @@ export default function AdminDashboard() {
         c.id === customer.id ? { ...c, paused_dates: updatedPausedDates } : c
       )
     );
+  };
+
+  const handleOpenEditMenu = (cust: Customer) => {
+    setEditingCustomer(cust);
+    setEditMenuText(Array.isArray(cust.menu_plan) ? cust.menu_plan.join("\n") : "");
+  };
+
+  const handleSaveMenu = async () => {
+    if (!editingCustomer) return;
+
+    const rawLines = editMenuText.split("\n").map((l) => l.trim()).filter(Boolean);
+    const processedMenu: string[] = [];
+    const iterations = editingCustomer.order_type === "OFFLINE" ? 1 : editingCustomer.duration_days;
+
+    for (let i = 0; i < iterations; i++) {
+      if (rawLines[i]) {
+        processedMenu.push(rawLines[i].replace(/^day\s*\d+\s*:\s*/i, "").replace(/^menu\s*:\s*/i, ""));
+      } else {
+        processedMenu.push("Balanced Meal | Juice | Protein Dinner");
+      }
+    }
+
+    const { error } = await supabase
+      .from("customers")
+      .update({ menu_plan: processedMenu })
+      .eq("id", editingCustomer.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setCustomers(
+      customers.map((c) => (c.id === editingCustomer.id ? { ...c, menu_plan: processedMenu } : c))
+    );
+    setEditingCustomer(null);
   };
 
   const renderCalendarDays = (customer: Customer) => {
@@ -354,7 +392,7 @@ export default function AdminDashboard() {
                       {cust.address_backup && <div><span className="text-[9px] font-black text-slate-400 block uppercase">Cadangan Hub</span> {cust.address_backup}</div>}
                     </div>
 
-                    {/* Lower Operational Action Control Row Area */}
+                    {/* Lower Operational Action Control Row Area (Added flex-wrap so buttons won't get cut off) */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2 relative">
                       
                       {cust.whatsapp ? (
@@ -374,7 +412,8 @@ export default function AdminDashboard() {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-1.5 relative">
+                      {/* Action Buttons Container with flex-wrap */}
+                      <div className="flex flex-wrap items-center gap-1.5 relative">
                         {/* Action 1: Manual Hold */}
                         <button onClick={() => togglePause(cust.id)} className="text-xs font-bold px-3 py-2 rounded-xl border bg-white text-slate-700 hover:bg-slate-50 transition-all">
                           {cust.is_paused ? "Resume" : "Manual Hold"}
@@ -430,7 +469,7 @@ export default function AdminDashboard() {
                           </div>
                         )}
 
-                        {/* FITUR BARU: Tombol Cek Bukti Transfer */}
+                        {/* Action 3: Bukti Pay */}
                         {cust.payment_proof_url ? (
                           <a 
                             href={cust.payment_proof_url} 
@@ -451,7 +490,17 @@ export default function AdminDashboard() {
                         )}
 
                         <a href={`/customer/${cust.id}`} target="_blank" className="text-xs font-bold px-3 py-2 rounded-xl bg-emerald-500 text-white">Portal</a>
-                        <button type="button" onClick={() => handleDelete(cust.id)} className="text-xs font-bold px-2.5 py-2 rounded-xl bg-red-50 text-red-600">Delete</button>
+                        
+                        {/* Tombol Edit Menu (Dibuat mencolok dengan warna Indigo agar langsung terlihat) */}
+                        <button 
+                          type="button" 
+                          onClick={() => handleOpenEditMenu(cust)} 
+                          className="text-xs font-bold px-3 py-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-all shadow-sm"
+                        >
+                           Edit Menu
+                        </button>
+
+                        <button type="button" onClick={() => handleDelete(cust.id)} className="text-xs font-bold px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-all">Delete</button>
                       </div>
 
                     </div>
@@ -535,6 +584,49 @@ export default function AdminDashboard() {
 
         </div>
       </div>
+
+      {/* Modal Popup untuk Edit Menu */}
+      {editingCustomer && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase">Edit Menu Plan</h3>
+                <p className="text-xs text-slate-400 font-mono">Customer: {editingCustomer.name} (#{editingCustomer.id})</p>
+              </div>
+              <button type="button" onClick={() => setEditingCustomer(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 tracking-wider uppercase">
+                Menu Lines ({editingCustomer.order_type === "OFFLINE" ? 1 : editingCustomer.duration_days} Days)
+              </label>
+              <textarea 
+                value={editMenuText} 
+                onChange={(e) => setEditMenuText(e.target.value)} 
+                className="w-full p-3 text-xs bg-slate-50 border rounded-2xl font-mono min-h-[220px] leading-relaxed" 
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button 
+                type="button" 
+                onClick={() => setEditingCustomer(null)} 
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={handleSaveMenu} 
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase bg-slate-900 text-white hover:bg-slate-800 shadow-md"
+              >
+                Save Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
