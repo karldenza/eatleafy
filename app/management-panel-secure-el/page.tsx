@@ -29,7 +29,7 @@ export default function AdminDashboard() {
 
   // State untuk Fitur Edit Menu
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [editMenuText, setEditMenuText] = useState("");
+  const [editMenuDays, setEditMenuDays] = useState<any[]>([]);
 
   // Form State
   const [orderType, setOrderType] = useState<"ONLINE" | "OFFLINE">("ONLINE");
@@ -166,23 +166,64 @@ export default function AdminDashboard() {
 
   const handleOpenEditMenu = (cust: Customer) => {
     setEditingCustomer(cust);
-    setEditMenuText(Array.isArray(cust.menu_plan) ? cust.menu_plan.join("\n") : "");
+    const start = new Date(cust.start_date || "2026-06-01");
+    const safePaused = Array.isArray(cust.paused_dates) ? cust.paused_dates : [];
+    const status = cust.order_type !== "OFFLINE" ? calculateProgramStatus(cust.start_date, cust.duration_days, safePaused) : { currentDay: 1 };
+    
+    const menuList = Array.isArray(cust.menu_plan) ? cust.menu_plan : [];
+    const daysCount = cust.order_type === "OFFLINE" ? 1 : cust.duration_days;
+    
+    const items = [];
+    let daysAdded = 0;
+    let offset = 0;
+
+    for (let i = 0; i < daysCount; i++) {
+      let targetDate = new Date(start);
+      if (cust.order_type !== "OFFLINE") {
+        while (daysAdded <= i && offset < 500) {
+          const d = new Date(start);
+          d.setDate(start.getDate() + offset);
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          const dateStr = `${yyyy}-${mm}-${dd}`;
+          
+          if (offset === i) {
+            targetDate = d;
+            break;
+          }
+          offset++;
+        }
+      }
+
+      // Compute exact calendar date mapping
+      let d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+
+      const isPaused = safePaused.includes(dateStr);
+      const isCurrent = cust.order_type !== "OFFLINE" && (i + 1) === status.currentDay;
+
+      items.push({
+        dayNumber: i + 1,
+        dateStr: dateStr,
+        menuText: menuList[i] || "Balanced Meal | Juice | Protein Dinner",
+        isPaused: isPaused,
+        isCurrent: isCurrent
+      });
+    }
+    setEditMenuDays(items);
   };
 
   const handleSaveMenu = async () => {
     if (!editingCustomer) return;
 
-    const rawLines = editMenuText.split("\n").map((l) => l.trim()).filter(Boolean);
-    const processedMenu: string[] = [];
-    const iterations = editingCustomer.order_type === "OFFLINE" ? 1 : editingCustomer.duration_days;
-
-    for (let i = 0; i < iterations; i++) {
-      if (rawLines[i]) {
-        processedMenu.push(rawLines[i].replace(/^day\s*\d+\s*:\s*/i, "").replace(/^menu\s*:\s*/i, ""));
-      } else {
-        processedMenu.push("Balanced Meal | Juice | Protein Dinner");
-      }
-    }
+    const processedMenu = editMenuDays.map((item) => 
+      item.menuText.replace(/^day\s*\d+\s*:\s*/i, "").replace(/^menu\s*:\s*/i, "").trim()
+    );
 
     const { error } = await supabase
       .from("customers")
@@ -392,7 +433,7 @@ export default function AdminDashboard() {
                       {cust.address_backup && <div><span className="text-[9px] font-black text-slate-400 block uppercase">Cadangan Hub</span> {cust.address_backup}</div>}
                     </div>
 
-                    {/* Lower Operational Action Control Row Area (Added flex-wrap so buttons won't get cut off) */}
+                    {/* Lower Operational Action Control Row Area */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2 relative">
                       
                       {cust.whatsapp ? (
@@ -412,14 +453,12 @@ export default function AdminDashboard() {
                         </div>
                       )}
 
-                      {/* Action Buttons Container with flex-wrap */}
+                      {/* Action Buttons Container */}
                       <div className="flex flex-wrap items-center gap-1.5 relative">
-                        {/* Action 1: Manual Hold */}
                         <button onClick={() => togglePause(cust.id)} className="text-xs font-bold px-3 py-2 rounded-xl border bg-white text-slate-700 hover:bg-slate-50 transition-all">
                           {cust.is_paused ? "Resume" : "Manual Hold"}
                         </button>
 
-                        {/* Action 2: Calendar Pause Dropdown Panel */}
                         {!isOffline && (
                           <div className="relative">
                             <button
@@ -469,7 +508,6 @@ export default function AdminDashboard() {
                           </div>
                         )}
 
-                        {/* Action 3: Bukti Pay */}
                         {cust.payment_proof_url ? (
                           <a 
                             href={cust.payment_proof_url} 
@@ -491,7 +529,7 @@ export default function AdminDashboard() {
 
                         <a href={`/customer/${cust.id}`} target="_blank" className="text-xs font-bold px-3 py-2 rounded-xl bg-emerald-500 text-white">Portal</a>
                         
-                        {/* Tombol Edit Menu (Dibuat mencolok dengan warna Indigo agar langsung terlihat) */}
+                        {/* Tombol Edit Menu */}
                         <button 
                           type="button" 
                           onClick={() => handleOpenEditMenu(cust)} 
@@ -585,48 +623,103 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Modal Popup untuk Edit Menu */}
+      {/* Modal Popup Edit Menu Lengkap dengan Keterangan Day, Status Sedang, & Sync Status Pause/Stop */}
       {editingCustomer && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 uppercase">Edit Menu Plan</h3>
-                <p className="text-xs text-slate-400 font-mono">Customer: {editingCustomer.name} (#{editingCustomer.id})</p>
-              </div>
-              <button type="button" onClick={() => setEditingCustomer(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-            </div>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
             
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 tracking-wider uppercase">
-                Menu Lines ({editingCustomer.order_type === "OFFLINE" ? 1 : editingCustomer.duration_days} Days)
-              </label>
-              <textarea 
-                value={editMenuText} 
-                onChange={(e) => setEditMenuText(e.target.value)} 
-                className="w-full p-3 text-xs bg-slate-50 border rounded-2xl font-mono min-h-[220px] leading-relaxed" 
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-extrabold text-slate-900">Edit Menu Plan</h3>
+                  <span className="text-[10px] font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md uppercase font-bold">{editingCustomer.name} (#{editingCustomer.id})</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">Ubah menu per hari, lihat status hari aktif, serta sinkronisasi status stop/paused customer.</p>
+              </div>
               <button 
                 type="button" 
                 onClick={() => setEditingCustomer(null)} 
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200"
+                className="w-8 h-8 rounded-full bg-slate-200/60 hover:bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs transition-all"
               >
-                Cancel
-              </button>
-              <button 
-                type="button" 
-                onClick={handleSaveMenu} 
-                className="px-4 py-2 rounded-xl text-xs font-black uppercase bg-slate-900 text-white hover:bg-slate-800 shadow-md"
-              >
-                Save Menu
+                ✕
               </button>
             </div>
+
+            {/* Modal Body (List Days) */}
+            <div className="p-6 overflow-y-auto space-y-3 flex-1 bg-slate-50/30">
+              {editMenuDays.map((item, idx) => (
+                <div 
+                  key={item.dayNumber} 
+                  className={`p-4 rounded-2xl border transition-all ${
+                    item.isCurrent 
+                      ? "bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-400/20 shadow-sm" 
+                      : item.isPaused 
+                      ? "bg-red-50/70 border-red-200 opacity-85" 
+                      : "bg-white border-slate-200 shadow-sm"
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black bg-slate-900 text-white px-2.5 py-1 rounded-xl">
+                        Day {item.dayNumber}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-slate-500">
+                        
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {item.isCurrent && (
+                        <span className="text-[9px] font-black bg-emerald-500 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
+                          ⭐ Sedang Berjalan (Current Day)
+                        </span>
+                      )}
+                      {item.isPaused && (
+                        <span className="text-[9px] font-black bg-red-500 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          ⛔ Stop / Compensated (Paused)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={item.menuText}
+                    onChange={(e) => {
+                      const updated = [...editMenuDays];
+                      updated[idx].menuText = e.target.value;
+                      setEditMenuDays(updated);
+                    }}
+                    placeholder={`Masukkan menu untuk Day ${item.dayNumber}...`}
+                    className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingCustomer(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveMenu}
+                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider shadow-md transition-all"
+              >
+                Simpan Perubahan Menu
+              </button>
+            </div>
+
           </div>
         </div>
       )}
+
     </div>
   );
 }
